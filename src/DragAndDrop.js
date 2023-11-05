@@ -6,7 +6,7 @@ function DragAndDrop() {
 
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState(null);
-  const [rawFile, setRawFile] = useState('')
+  const [filename, setFilename] = useState('')
   const [prediction, setPrediction] = useState('');
   const inputRef = useRef(null);
 
@@ -38,11 +38,21 @@ function DragAndDrop() {
   };
 
   const getImage = (e) => {
-    const reader = new FileReader();
-    setRawFile(e.files[0]);
+    const formData = new FormData();
+    
+    formData.append("file", e.target.files[0]);
+    formData.append("filename", e.target.files[0].name)
+  
+    setFilename(e.target.files[0].name)
+    
+     fetch(`//localhost:3001/upload`,{method:'POST', body: formData})
+        .then(res => console.log(res))
+        .catch(err => console.warn(err));
 
-    if (e.files[0] && acceptedFileType.includes(e.files[0].type)) {
-      reader.readAsDataURL(e.files[0]);
+    const reader = new FileReader();
+
+    if (e.target.files[0] && acceptedFileType.includes(e.target.files[0].type)) {
+      reader.readAsDataURL(e.target.files[0]);
     }
 
     reader.onload = (readerEvent) => {
@@ -50,18 +60,21 @@ function DragAndDrop() {
     };
   };
 
-  const getPrediction = (file) => {
-      fetch(`//localhost:3001/predict/${file}`)
-        .then((response) => response.json())
-        .then((data) => setPrediction(data));
+  const getPrediction = async (file) => {
+      await fetch(`//localhost:3001/predict/${file}`, {method: 'POST', body: file})
+      .then(res => res.json())
+      .then(data => setPrediction(data))
   };
+
+  console.log(prediction)
 
   return (
     <>
       <div className="container">
         {file ? (
           <>
-            <img className="image" src={file} onClick={() => getPrediction(rawFile)} />
+            {prediction && <p>{prediction.Class} - {prediction.Prediction}</p>}
+            <img className="image" src={file} onClick={() => getPrediction(filename)} />
             <button onClick={() => setFile(null)}>Close</button>
           </>
         ) : (
@@ -79,7 +92,7 @@ function DragAndDrop() {
                   ref={inputRef}
                   type="file"
                   hidden
-                  onChange={(e) => getImage(e.target)}
+                  onChange={(e) => getImage(e)}
                 />
                 <div className="upload-icon"></div>
                 Drop a file here.

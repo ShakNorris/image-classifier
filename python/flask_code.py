@@ -2,8 +2,11 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS, cross_origin
 import numpy as np
 import tensorflow as tf
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
 from tensorflow import keras
 import os
+import PIL
 
 
 app = Flask(__name__)
@@ -12,31 +15,38 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 basedir = os.path.abspath(os.path.dirname(__file__))
 uploads_path = os.path.join(basedir, 'uploads')
 
-model = tf.keras.models.load_model('image-classifier/python/catdog_model.h5')
+model = tf.keras.models.load_model('python/catdog_model.h5')
 image_size = (180, 180)
 
 class_names = ['Cat', 'Dog']
 
 @cross_origin
-@app.route("/predict/<image>")
+@app.route("/predict/<image>", methods=['POST'])
 def return_name(image):
-    file = open(image, 'rb', buffering=0)
-    print(type(file))
-    response = jsonify(image)
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response;
+    img = keras.preprocessing.image.load_img(
+     f"python/uploads/{image}", target_size=(180, 180)
+    )
+    img_array = keras.preprocessing.image.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0)
+    predictions = model.predict(img_array)
+
+    score = tf.nn.softmax(predictions[0])
+    response = jsonify({'Class': class_names[np.argmax(score)], 'Prediction': np.max(score) * 100})
+    return response
 
 # Uploads an image to 'uploads' folder
-@app.route('/img-upload', methods=['POST'])
+@cross_origin
+@app.route('/upload', methods=['POST'])
 def upload_image():
-
+    target = os.getcwd()
+    file = request.files['file'] 
+    filename = secure_filename(file.filename)
+    destination="/python/uploads/".join([target, filename])
+    file.save(destination)
+    print(file);
+    return "file uploaded"
 
 # def get_predictiion(image):
-
-#     imgdata = base64.b64decode(image)
-#     filename = 'some_image.jpg'  # I assume you have a way of picking unique filenames
-#     with open(filename, 'wb') as f:
-#         f.write(imgdata)
 
 #     img = keras.preprocessing.image.load_img(
 #     filename, target_size=(180, 180)
